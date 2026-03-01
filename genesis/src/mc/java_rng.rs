@@ -23,7 +23,7 @@ impl JavaRNG {
         // we set seed = seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1)
         // we output seed >>> (48 - bits)
         self.seed = (self.seed.wrapping_mul(MULTIPLIER).wrapping_add(ADDEND)) & MASK;
-        ((self.seed) >> (48 - bits) as u32)
+        ((self.seed) >> (48 - bits)) as u32
     }
     pub fn next_int(&mut self, bound: i32) -> i32 {
         assert!(bound > 0);
@@ -45,8 +45,21 @@ impl JavaRNG {
         }
     }
     pub fn next_long(&mut self) -> i64 {
-        let high = self.next(32) as u64;
-        let low = self.next(32) as u64;
-        ((high << 32) | low) as i64
+        let high = self.next(32) as i32 as i64; //this is stupid but java
+        let low = self.next(32) as i32 as i64;
+        (high << 32).wrapping_add(low)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JavaRNG;
+
+    #[test]
+    fn matches_java_random_12345() {
+        let mut r = JavaRNG::new(12345);
+        assert_eq!(r.next_int(100), 51);
+        assert_eq!(r.next_int(100), 80);
+        assert_eq!(r.next_long(), -1236052134575208584);
     }
 }

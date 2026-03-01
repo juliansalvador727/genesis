@@ -1,5 +1,7 @@
+mod mc;
 mod search;
 fn main() {
+    mc::run();
     search::run();
 }
 
