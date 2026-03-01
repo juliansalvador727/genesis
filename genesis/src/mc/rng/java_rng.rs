@@ -1,4 +1,4 @@
-// my implementation of random.java i.e. Java’s 48-bit LCG
+// my rust implementation of random.java i.e. Java’s 48-bit LCG
 // source: https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Random.java#L357
 const MULTIPLIER: u64 = 0x5DEECE66D;
 const ADDEND: u64 = 0xB;
@@ -45,7 +45,7 @@ impl JavaRNG {
         }
     }
     pub fn next_long(&mut self) -> i64 {
-        let high = self.next(32) as i64; //this is stupid but java
+        let high = self.next(32) as i64;
         let low = self.next(32) as i64;
         (high << 32).wrapping_add(low)
     }
