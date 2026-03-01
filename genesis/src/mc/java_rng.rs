@@ -45,8 +45,8 @@ impl JavaRNG {
         }
     }
     pub fn next_long(&mut self) -> i64 {
-        let high = self.next(32) as i32 as i64; //this is stupid but java
-        let low = self.next(32) as i32 as i64;
+        let high = self.next(32) as i64; //this is stupid but java
+        let low = self.next(32) as i64;
         (high << 32).wrapping_add(low)
     }
 }
