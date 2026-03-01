@@ -55,11 +55,135 @@ impl JavaRNG {
 mod tests {
     use super::JavaRNG;
 
+    // 1) determinism: same seed => same sequence
     #[test]
-    fn matches_java_random_12345() {
+    fn same_seed_same_sequence() {
+        let mut a = JavaRNG::new(999);
+        let mut b = JavaRNG::new(999);
+
+        for _ in 0..1000 {
+            assert_eq!(a.next_int(1_000_000), b.next_int(1_000_000));
+        }
+    }
+
+    // 2) different seeds should diverge quickly (not a proof, but a good sanity check)
+    #[test]
+    fn different_seeds_diverge() {
+        let mut a = JavaRNG::new(999);
+        let mut b = JavaRNG::new(1000);
+
+        // extremely unlikely to be equal for all these draws if working
+        let mut same = 0;
+        for _ in 0..200 {
+            if a.next_int(1_000_000) == b.next_int(1_000_000) {
+                same += 1;
+            }
+        }
+        assert!(same < 5);
+    }
+
+    // 3) bound=1 must always return 0
+    #[test]
+    fn next_int_bound_one_is_zero() {
+        let mut r = JavaRNG::new(123);
+        for _ in 0..10_000 {
+            assert_eq!(r.next_int(1), 0);
+        }
+    }
+
+    // 4) range property: always 0 <= value < bound
+    #[test]
+    fn next_int_in_range_many_bounds() {
         let mut r = JavaRNG::new(12345);
-        assert_eq!(r.next_int(100), 51);
-        assert_eq!(r.next_int(100), 80);
-        assert_eq!(r.next_long(), -1236052134575208584);
+        let bounds = [
+            2, 3, 4, 5, 7, 8, 10, 16, 31, 32, 33, 97, 100, 127, 128, 129, 1024,
+        ];
+        for &b in &bounds {
+            for _ in 0..5000 {
+                let x = r.next_int(b);
+                assert!(0 <= x && x < b, "x={} not in [0, {})", x, b);
+            }
+        }
+    }
+
+    // 5) power-of-two bounds still in range (hits that fast path)
+    #[test]
+    fn next_int_power_of_two_bounds() {
+        let mut r = JavaRNG::new(777);
+        let bounds = [2, 4, 8, 16, 32, 64, 128, 1024, 1 << 20];
+        for &b in &bounds {
+            for _ in 0..5000 {
+                let x = r.next_int(b);
+                assert!(0 <= x && x < b);
+            }
+        }
+    }
+
+    // 6) non-power-of-two bounds (forces rejection path)
+    #[test]
+    fn next_int_rejection_bounds() {
+        let mut r = JavaRNG::new(888);
+        let bounds = [3, 5, 6, 7, 9, 10, 12, 31, 33, 1000, 1_000_003];
+        for &b in &bounds {
+            for _ in 0..5000 {
+                let x = r.next_int(b);
+                assert!(0 <= x && x < b);
+            }
+        }
+    }
+
+    // 7) set_seed resets sequence
+    #[test]
+    fn set_seed_resets_sequence() {
+        let mut r = JavaRNG::new(1);
+        let a1 = r.next_int(1_000_000);
+        let a2 = r.next_int(1_000_000);
+
+        r.set_seed(1);
+        let b1 = r.next_int(1_000_000);
+        let b2 = r.next_int(1_000_000);
+
+        assert_eq!(a1, b1);
+        assert_eq!(a2, b2);
+    }
+
+    // 8) negative and large seeds should work (just deterministic + in range)
+    #[test]
+    fn negative_seed_and_large_seed_work() {
+        let mut a = JavaRNG::new(-1);
+        let mut b = JavaRNG::new(i64::MAX);
+
+        for _ in 0..10_000 {
+            let x = a.next_int(1_000_000);
+            let y = b.next_int(1_000_000);
+            assert!(0 <= x && x < 1_000_000);
+            assert!(0 <= y && y < 1_000_000);
+        }
+    }
+
+    // 9) next_long changes state and is deterministic across identical RNGs
+    #[test]
+    fn next_long_deterministic() {
+        let mut a = JavaRNG::new(424242);
+        let mut b = JavaRNG::new(424242);
+
+        for _ in 0..1000 {
+            assert_eq!(a.next_long(), b.next_long());
+        }
+    }
+
+    // 10) mixing next_int and next_long preserves determinism (state transitions identical)
+    #[test]
+    fn mixed_calls_deterministic() {
+        let mut a = JavaRNG::new(2026);
+        let mut b = JavaRNG::new(2026);
+
+        for i in 0..2000 {
+            if i % 3 == 0 {
+                assert_eq!(a.next_long(), b.next_long());
+            } else {
+                assert_eq!(a.next_int(10_000), b.next_int(10_000));
+            }
+        }
     }
 }
